@@ -126,98 +126,45 @@ presentation state and dependency injection wiring data sources through reposito
 
 ## Application Screenshots
 
-Screens below are taken from the project's Figma design file and exported as PNG (3x, 1125 px wide). They are grouped by user flow.
+A selection of the main screens, taken from the project's Figma design file. They follow the core shopping journey: discover a product, check out, then track the order.
 
-### Authentication
+### Browse & Discover
 
-<table>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/01_login.png" alt="Login" width="200"><br><sub><b>Login</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/02_login_email_error.png" alt="Login — email error" width="200"><br><sub><b>Login — email error</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/03_login_password_error.png" alt="Login — password error" width="200"><br><sub><b>Login — password error</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/04_sign_up.png" alt="Sign up" width="200"><br><sub><b>Sign up</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/05_sign_up_email_error.png" alt="Sign up — email error" width="200"><br><sub><b>Sign up — email error</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/06_forgot_password.png" alt="Forgot password" width="200"><br><sub><b>Forgot password</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/07_forgot_password_email_error.png" alt="Forgot password — invalid email" width="200"><br><sub><b>Forgot password — invalid email</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/08_verification_code.png" alt="Email verification" width="200"><br><sub><b>Email verification</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/09_verification_code_error.png" alt="Email verification — invalid code" width="200"><br><sub><b>Email verification — invalid code</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/10_set_new_password.png" alt="Set new password" width="200"><br><sub><b>Set new password</b></sub></td>
-    <td width="33%"></td>
-    <td width="33%"></td>
-  </tr>
-</table>
-
-### Browse & Catalogue
+Catalog browsing, curated collections and search.
 
 <table>
   <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/11_home.png" alt="Home" width="200"><br><sub><b>Home</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/12_search_empty.png" alt="Search — empty state" width="200"><br><sub><b>Search — empty state</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/13_search_results.png" alt="Search — results" width="200"><br><sub><b>Search — results</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/14_categories.png" alt="Categories" width="200"><br><sub><b>Categories</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/15_categories_sort_sheet.png" alt="Categories — sort sheet" width="200"><br><sub><b>Categories — sort sheet</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/16_best_sellers.png" alt="Best sellers" width="200"><br><sub><b>Best sellers</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/17_occasions.png" alt="Occasions" width="200"><br><sub><b>Occasions</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/18_product_details.png" alt="Product details" width="200"><br><sub><b>Product details</b></sub></td>
-    <td width="33%"></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/14_categories.png" alt="Categories" width="215"><br><sub><b>Categories</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/16_best_sellers.png" alt="Best sellers" width="215"><br><sub><b>Best sellers</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/13_search_results.png" alt="Search results" width="215"><br><sub><b>Search results</b></sub></td>
   </tr>
 </table>
 
 ### Cart & Checkout
 
-<table>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/19_cart.png" alt="Cart" width="200"><br><sub><b>Cart</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/20_checkout_shipping_payment.png" alt="Checkout — shipping & payment" width="200"><br><sub><b>Checkout — shipping & payment</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/21_order_placed_success.png" alt="Order placed" width="200"><br><sub><b>Order placed</b></sub></td>
-  </tr>
-</table>
-
-### Orders & Tracking
+From cart to a placed order, including delivery and payment selection.
 
 <table>
   <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/22_track_order_received.png" alt="Tracking — order received" width="200"><br><sub><b>Tracking — order received</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/23_track_order_live_map.png" alt="Tracking — live map" width="200"><br><sub><b>Tracking — live map</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/24_track_order_delivered.png" alt="Tracking — delivered" width="200"><br><sub><b>Tracking — delivered</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/25_my_orders_active.png" alt="My orders — Active" width="200"><br><sub><b>My orders — Active</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/26_my_orders_completed.png" alt="My orders — Completed" width="200"><br><sub><b>My orders — Completed</b></sub></td>
-    <td width="33%"></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/19_cart.png" alt="Cart" width="215"><br><sub><b>Cart</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/20_checkout_shipping_payment.png" alt="Checkout" width="215"><br><sub><b>Checkout</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/21_order_placed_success.png" alt="Order placed" width="215"><br><sub><b>Order placed</b></sub></td>
   </tr>
 </table>
 
-### Account & Profile
+### Tracking & Account
+
+Live delivery status, order history and profile management.
 
 <table>
   <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/27_profile.png" alt="Profile" width="200"><br><sub><b>Profile</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/28_profile_change_language.png" alt="Profile — change language" width="200"><br><sub><b>Profile — change language</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/29_profile_logout_confirmation.png" alt="Profile — logout confirmation" width="200"><br><sub><b>Profile — logout confirmation</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/30_edit_profile.png" alt="Edit profile" width="200"><br><sub><b>Edit profile</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/31_change_password.png" alt="Change password" width="200"><br><sub><b>Change password</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/32_change_password_error.png" alt="Change password — error" width="200"><br><sub><b>Change password — error</b></sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/33_saved_addresses.png" alt="Saved addresses" width="200"><br><sub><b>Saved addresses</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/34_add_address.png" alt="Add address" width="200"><br><sub><b>Add address</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/35_notifications.png" alt="Notifications" width="200"><br><sub><b>Notifications</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/22_track_order_received.png" alt="Order tracking" width="215"><br><sub><b>Order tracking</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/25_my_orders_active.png" alt="My orders" width="215"><br><sub><b>My orders</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/27_profile.png" alt="Profile" width="215"><br><sub><b>Profile</b></sub></td>
   </tr>
 </table>
 
+> The complete screen-by-screen set, including validation and error states, is available in [`assets/screenshots/`](assets/screenshots/).
 
 ---
 
