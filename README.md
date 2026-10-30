@@ -10,9 +10,7 @@ A cross-platform Flutter application for browsing, ordering, and tracking flower
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="assets/screenshots/11_home.png" width="230" alt="Home"><br><sub><b>Home</b></sub></td>
-    <td align="center" width="33%"><img src="assets/screenshots/18_product_details.png" width="230" alt="Product details"><br><sub><b>Product details</b></sub></td>
-    <td align="center" width="33%"><img src="assets/screenshots/23_track_order_live_map.png" width="230" alt="Live order tracking"><br><sub><b>Live order tracking</b></sub></td>
+    <td align="center"><img src="assets/demo/flower-app-flow.gif" width="250" alt="Flower App core shopping flow"><br><sub><b>Browse → product → cart → checkout → order placed → live tracking</b></sub><br><sub><i>Walkthrough of screens from the project's Figma design file</i></sub></td>
   </tr>
 </table>
 
@@ -102,21 +100,31 @@ maintained independently going forward under my own account, with permission fro
 
 The mobile app follows **Clean Architecture** with a **feature-first** folder structure:
 
+### Project Structure
+
 ```text
-lib/
-├── app/             # App-level bootstrap, layout, routing
-├── core/            # Shared infrastructure: DI, networking, theming,
-│                    # localization, errors, widgets
-└── features/
-    ├── auth/
-    ├── cart/
-    ├── address/
-    ├── commerce/
-    ├── notification/
-    ├── order/
-    ├── payment/
-    ├── profile/
-    └── sessions/
+Flower-App/
+├── .github/workflows/        # CI: pull-request title check
+├── FlowerApp-Backend/        # Docker Compose for the backend stack
+├── android/ · ios/ · web/    # Platform projects
+├── linux/ · macos/ · windows/
+├── assets/
+│   ├── demo/                 # Animated flow preview used in this README
+│   ├── images/               # App images and icons
+│   ├── screenshots/          # UI screens from the Figma design file
+│   └── translations/         # Arabic / English localization
+├── lib/
+│   ├── app/                  # Bootstrap, layout, routing
+│   ├── core/                 # DI, networking, theming, localization,
+│   │                         # errors, services, shared widgets
+│   └── features/             # auth · commerce · cart · address · order
+│                             # payment · profile · notification · sessions
+├── postman/                  # API collection
+├── test/                     # Unit and widget tests (136 files)
+├── .env.example              # Runtime configuration template
+├── .fvmrc                    # Pinned Flutter version (FVM)
+├── setup.sh                  # Backend bootstrap script
+└── pubspec.yaml
 ```
 
 Each feature is organized into `data` / `domain` / `presentation` layers, with BLoC/Cubit driving
@@ -126,7 +134,7 @@ presentation state and dependency injection wiring data sources through reposito
 
 ## Application Screenshots
 
-A selection of the main screens, taken from the project's Figma design file. They follow the core shopping journey: discover a product, check out, then track the order.
+A selection of the main screens, taken from the project's Figma design file.
 
 ### Browse & Discover
 
@@ -134,31 +142,43 @@ Catalog browsing, curated collections and search.
 
 <table>
   <tr>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/11_home.png" alt="Home" width="215"><br><sub><b>Home</b></sub></td>
     <td align="center" valign="top" width="33%"><img src="assets/screenshots/14_categories.png" alt="Categories" width="215"><br><sub><b>Categories</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/16_best_sellers.png" alt="Best sellers" width="215"><br><sub><b>Best sellers</b></sub></td>
     <td align="center" valign="top" width="33%"><img src="assets/screenshots/13_search_results.png" alt="Search results" width="215"><br><sub><b>Search results</b></sub></td>
   </tr>
 </table>
 
-### Cart & Checkout
+### Products & Cart
 
-From cart to a placed order, including delivery and payment selection.
+Product detail view and cart management.
 
 <table>
   <tr>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/16_best_sellers.png" alt="Best sellers" width="215"><br><sub><b>Best sellers</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/18_product_details.png" alt="Product details" width="215"><br><sub><b>Product details</b></sub></td>
     <td align="center" valign="top" width="33%"><img src="assets/screenshots/19_cart.png" alt="Cart" width="215"><br><sub><b>Cart</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/20_checkout_shipping_payment.png" alt="Checkout" width="215"><br><sub><b>Checkout</b></sub></td>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/21_order_placed_success.png" alt="Order placed" width="215"><br><sub><b>Order placed</b></sub></td>
   </tr>
 </table>
 
-### Tracking & Account
+### Checkout & Tracking
 
-Live delivery status, order history and profile management.
+Delivery and payment selection, then live order tracking.
 
 <table>
   <tr>
-    <td align="center" valign="top" width="33%"><img src="assets/screenshots/22_track_order_received.png" alt="Order tracking" width="215"><br><sub><b>Order tracking</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/20_checkout_shipping_payment.png" alt="Checkout" width="215"><br><sub><b>Checkout</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/21_order_placed_success.png" alt="Order placed" width="215"><br><sub><b>Order placed</b></sub></td>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/23_track_order_live_map.png" alt="Live tracking" width="215"><br><sub><b>Live tracking</b></sub></td>
+  </tr>
+</table>
+
+### Order Status & Account
+
+Delivery progress, order history and profile.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%"><img src="assets/screenshots/22_track_order_received.png" alt="Order status" width="215"><br><sub><b>Order status</b></sub></td>
     <td align="center" valign="top" width="33%"><img src="assets/screenshots/25_my_orders_active.png" alt="My orders" width="215"><br><sub><b>My orders</b></sub></td>
     <td align="center" valign="top" width="33%"><img src="assets/screenshots/27_profile.png" alt="Profile" width="215"><br><sub><b>Profile</b></sub></td>
   </tr>
