@@ -1,0 +1,355 @@
+import 'dart:async';
+
+import 'package:flower_app/core/base/base_response.dart';
+import 'package:flower_app/core/base/base_state.dart';
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/core/errors/app_error.dart';
+import 'package:flower_app/features/cart/domain/entities/cart_entity.dart';
+import 'package:flower_app/features/cart/domain/use_cases/cart_use_cases.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_event.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_state.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
+
+@lazySingleton
+class CartViewModel extends Cubit<CartState> {
+  CartViewModel(
+    this._getCartUseCase,
+    this._addCartItemUseCase,
+    this._updateCartItemUseCase,
+    this._removeCartItemUseCase,
+  ) : super(const CartState());
+
+  final GetCartUseCase _getCartUseCase;
+  final AddCartItemUseCase _addCartItemUseCase;
+  final UpdateCartItemUseCase _updateCartItemUseCase;
+  final RemoveCartItemUseCase _removeCartItemUseCase;
+  final Map<String, Timer> _quantityTimers = {};
+  final Map<String, CartItemEntity> _quantitySnapshots = {};
+  int _pendingMutations = 0;
+  int _loadGeneration = 0;
+
+  static const _quantityDebounce = Duration(milliseconds: 400);
+
+  Future<void> doEvent(CartEvent event) async {
+    switch (event) {
+      case LoadCart():
+        await _loadCart();
+      case ResetCart():
+        _reset();
+      case ClearCart():
+        await _clearPurchasedCart();
+      case AddCartItemEvent():
+        await _addItem(event.productId, event.quantity);
+      case ChangeCartItemQuantity():
+        await _changeQuantity(event.itemId, event.delta);
+      case RemoveCartItemEvent():
+        await _removeItem(event.itemId);
+    }
+  }
+
+  Future<void> _loadCart() async {
+    final generation = ++_loadGeneration;
+    if (state.cartState.data == null) _emitLoading();
+    final response = await _getCartUseCase.getCart();
+    if (generation != _loadGeneration || _pendingMutations > 0) return;
+    if (_quantityTimers.isNotEmpty) return;
+    _applyLoadResponse(response);
+  }
+
+  Future<void> _addItem(String productId, int quantity) async {
+    final previous = _currentCart();
+    _emitCart(_optimisticAdd(previous, quantity));
+    _pendingMutations++;
+    final response = await _addCartItemUseCase.addItem(
+      productId: productId,
+      quantity: quantity,
+    );
+    _pendingMutations--;
+    _applyMutationResponse(response, previous);
+  }
+
+  Future<void> _changeQuantity(String itemId, int delta) async {
+    final item = _findItem(itemId);
+    if (item == null) return;
+    final next = item.quantity + delta;
+    if (delta > 0 && item.outOfStock) return;
+    if (delta > 0 && item.stock != null && next > item.stock!) return;
+    if (next <= 0) {
+      await _removeItem(itemId);
+      return;
+    }
+    _scheduleQuantityCommit(itemId, next);
+  }
+
+  Future<void> _removeItem(String itemId) async {
+    _quantityTimers.remove(itemId)?.cancel();
+    _quantitySnapshots.remove(itemId);
+    final previous = _currentCart();
+    if (previous == null) return;
+    _emitCart(
+      previous
+          .copyWith(
+            items: previous.items.where((item) {
+              return item.id != itemId;
+            }).toList(),
+          )
+          .recalculated(),
+    );
+    _pendingMutations++;
+    final response = await _removeCartItemUseCase.removeItem(itemId: itemId);
+    _pendingMutations--;
+    _applyRemoveResponse(response, previous);
+  }
+
+  void _scheduleQuantityCommit(String itemId, int next) {
+    final item = _findItem(itemId);
+    if (item == null) return;
+    _quantitySnapshots.putIfAbsent(itemId, () => item);
+    _applyLocalQuantity(itemId, next);
+    _quantityTimers[itemId]?.cancel();
+    _quantityTimers[itemId] = Timer(_quantityDebounce, () {
+      _commitQuantity(itemId);
+    });
+  }
+
+  Future<void> _commitQuantity(String itemId) async {
+    _quantityTimers.remove(itemId);
+    final snapshot = _quantitySnapshots.remove(itemId);
+    final current = _findItem(itemId);
+    if (snapshot == null || current == null) return;
+    if (current.quantity == snapshot.quantity) return;
+    _pendingMutations++;
+    final response = await _updateCartItemUseCase.updateItem(
+      itemId: itemId,
+      quantity: current.quantity,
+    );
+    _pendingMutations--;
+    _applyMutationResponse(response, _rollbackQuantity(snapshot));
+  }
+
+  CartEntity _optimisticAdd(CartEntity? previous, int quantity) {
+    final cart = previous ?? const CartEntity.empty();
+    return cart.copyWith(itemCount: cart.itemCount + quantity);
+  }
+
+  CartEntity _rollbackQuantity(CartItemEntity snapshot) {
+    final cart = _currentCart() ?? const CartEntity.empty();
+    return cart
+        .copyWith(
+          items: [
+            for (final item in cart.items)
+              if (item.id == snapshot.id) snapshot else item,
+          ],
+        )
+        .recalculated();
+  }
+
+  void _applyLocalQuantity(String itemId, int quantity) {
+    final cart = _currentCart();
+    if (cart == null) return;
+    _emitCart(
+      cart
+          .copyWith(
+            items: [
+              for (final item in cart.items)
+                if (item.id == itemId)
+                  item.copyWith(quantity: quantity)
+                else
+                  item,
+            ],
+          )
+          .recalculated(),
+    );
+  }
+
+  void _applyLoadResponse(BaseResponse<CartEntity> response) {
+    switch (response) {
+      case SuccessResponse<CartEntity>():
+        _emitCart(response.data, isLoading: false);
+      case ErrorResponse<CartEntity>():
+        _emitError(response.errorMessage, keepData: true);
+    }
+  }
+
+  void _applyMutationResponse(
+    BaseResponse<CartEntity> response,
+    CartEntity? previous,
+  ) {
+    switch (response) {
+      case SuccessResponse<CartEntity>():
+        _onMutationSuccess(response.data);
+      case ErrorResponse<CartEntity>():
+        _applyMutationError(response.appError, previous);
+    }
+  }
+
+  void _applyMutationError(AppError error, CartEntity? previous) {
+    final cart = previous ?? _currentCart();
+    if (cart != null && _clampToStock(error, cart)) return;
+    _emitError(error.message, cart: previous);
+  }
+
+  bool _clampToStock(AppError error, CartEntity cart) {
+    if (error is! BadResponseError) return false;
+    final available = (error.data?['availableQuantity'] as num?)?.toInt();
+    if (available == null) return false;
+    final productId = error.data?['productId']?.toString();
+    _emitError(
+      AppString.stockLimit,
+      cart: _clamped(cart, productId, available),
+    );
+    return true;
+  }
+
+  CartEntity _clamped(CartEntity cart, String? productId, int available) {
+    return cart
+        .copyWith(
+          items: [
+            for (final item in cart.items)
+              _clampItem(item, productId, available),
+          ],
+        )
+        .recalculated();
+  }
+
+  CartItemEntity _clampItem(
+    CartItemEntity item,
+    String? productId,
+    int available,
+  ) {
+    final match = productId == null
+        ? item.quantity > available
+        : item.productId == productId;
+    if (!match) return item;
+    final quantity = item.quantity > available ? available : item.quantity;
+    return item.copyWith(quantity: quantity, stock: available);
+  }
+
+  void _onMutationSuccess(CartEntity cart) {
+    if (_pendingMutations != 0 || _quantityTimers.isNotEmpty) return;
+    _loadGeneration++;
+    if (cart.items.isNotEmpty) {
+      _emitCart(cart);
+      return;
+    }
+    _loadCart();
+  }
+
+  void _applyRemoveResponse(
+    BaseResponse<CartEntity> response,
+    CartEntity previous,
+  ) {
+    switch (response) {
+      case SuccessResponse<CartEntity>():
+        _emitRemovedCart(response.data);
+      case ErrorResponse<CartEntity>():
+        _emitError(response.errorMessage, cart: previous);
+    }
+  }
+
+  void _emitRemovedCart(CartEntity cart) {
+    _loadGeneration++;
+    if (_pendingMutations != 0 || _quantityTimers.isNotEmpty) return;
+    _emitCart(cart);
+  }
+
+  CartEntity? _currentCart() => state.cartState.data;
+
+  CartItemEntity? _findItem(String itemId) {
+    final items = _currentCart()?.items ?? const [];
+    for (final item in items) {
+      if (item.id == itemId) return item;
+    }
+    return null;
+  }
+
+  void _emitLoading() {
+    emit(
+      state.copyWith(
+        cartState: state.cartState.copyWith(isLoading: true, errorMessage: ''),
+      ),
+    );
+  }
+
+  void _emitCart(CartEntity cart, {bool isLoading = false}) {
+    emit(
+      state.copyWith(
+        cartState: state.cartState.copyWith(
+          isLoading: isLoading,
+          errorMessage: '',
+          data: cart,
+        ),
+      ),
+    );
+  }
+
+  void _emitError(String message, {CartEntity? cart, bool keepData = false}) {
+    emit(
+      state.copyWith(
+        cartState: BaseState(
+          isLoading: false,
+          errorMessage: message,
+          data: cart ?? (keepData ? state.cartState.data : null),
+        ),
+      ),
+    );
+  }
+
+  void _reset() {
+    _loadGeneration++;
+    _pendingMutations = 0;
+    _cancelQuantityTimers();
+    emit(const CartState());
+  }
+
+  Future<void> _clearPurchasedCart() async {
+    _loadGeneration++;
+    _pendingMutations = 0;
+    _cancelQuantityTimers();
+    final cart = await _purchasedCart();
+    if (cart == null || cart.items.isEmpty) {
+      if (cart != null) _emitCart(cart);
+      return;
+    }
+    await _deleteItems(_itemIds(cart));
+    final refreshed = await _purchasedCart();
+    if (refreshed != null) _emitCart(refreshed);
+  }
+
+  Future<CartEntity?> _purchasedCart() async {
+    final response = await _getCartUseCase.getCart();
+    if (response is SuccessResponse<CartEntity>) return response.data;
+    if (response is ErrorResponse<CartEntity>) {
+      _emitError(response.errorMessage, keepData: true);
+    }
+    return null;
+  }
+
+  List<String> _itemIds(CartEntity cart) {
+    return [
+      for (final item in cart.items)
+        if (item.id.isNotEmpty) item.id,
+    ];
+  }
+
+  Future<void> _deleteItems(List<String> ids) async {
+    for (final id in ids) {
+      await _removeCartItemUseCase.removeItem(itemId: id);
+    }
+  }
+
+  void _cancelQuantityTimers() {
+    for (final timer in _quantityTimers.values) {
+      timer.cancel();
+    }
+    _quantityTimers.clear();
+    _quantitySnapshots.clear();
+  }
+
+  @override
+  Future<void> close() {
+    _cancelQuantityTimers();
+    return super.close();
+  }
+}

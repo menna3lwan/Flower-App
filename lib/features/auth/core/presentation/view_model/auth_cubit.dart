@@ -1,0 +1,211 @@
+import 'dart:async';
+
+import 'package:flower_app/core/auth/auth_session_controller.dart';
+import 'package:flower_app/core/base/base_state.dart';
+import 'package:flower_app/features/auth/core/auth_status.dart';
+import 'package:flower_app/features/notification/domain/use_cases/sync_fcm_token_use_case.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
+
+import '../../domain/repos/auth_repository.dart';
+import '../../pending_action.dart';
+import 'auth_event.dart';
+import 'auth_state.dart';
+
+@lazySingleton
+class AuthCubit extends Cubit<AuthState>
+    implements AuthSessionController, AuthStatus {
+  AuthCubit(
+    this._authRepository,
+    this._syncFcmTokenUseCase,
+  ) : super(AuthState.initial()) {
+    _sessionExpiredSubscription = _authRepository.sessionExpired.listen(
+      (_) => _handleSessionExpired(),
+    );
+  }
+
+  final AuthRepository _authRepository;
+  final SyncFcmTokenUseCase _syncFcmTokenUseCase;
+
+  PendingAction? _pendingAction;
+  late final StreamSubscription<void> _sessionExpiredSubscription;
+
+  @override
+  Stream<bool> get authStatusStream async* {
+    yield state.isAuthenticated;
+
+    yield* stream.map((authState) => authState.isAuthenticated).distinct();
+  }
+
+  Future<void> doEvent(AuthEvent event) async {
+    switch (event) {
+      case AuthCheckRequested():
+        await _restoreSession();
+        break;
+
+      case AuthLogoutRequested():
+        await _logout();
+        break;
+
+      case AuthGuestRequested():
+        _continueAsGuest();
+        break;
+
+      case AuthAuthenticationRequired(:final pendingAction):
+        _requireAuthentication(pendingAction);
+        break;
+
+      case AuthLoginSucceeded():
+        await _handleAuthenticationSuccess();
+        break;
+
+      case AuthAuthenticationCancelled():
+        _cancelAuthentication();
+        break;
+    }
+  }
+
+  void _cancelAuthentication() {
+    _pendingAction = null;
+
+    emit(state.copyWith(requiresAuthentication: false));
+  }
+
+  void _continueAsGuest() {
+    _pendingAction = null;
+
+    emit(
+      state.copyWith(
+        authState: const BaseState(data: false),
+        requiresAuthentication: false,
+      ),
+    );
+  }
+
+  // Restores an existing session and syncs its FCM token.
+  Future<void> _restoreSession() async {
+    final isAuthenticated = await _authRepository.isAuthenticated();
+
+    if (isAuthenticated) {
+      try {
+        await _authRepository.startSessionRefresh();
+      } catch (_) {
+        // Keep the existing authentication flow.
+      }
+
+      // A restored session may belong to a different account than the one
+      // that last synced on this device, so force the rebind as on login.
+      await _syncFcmTokenUseCase(force: true);
+    }
+
+    emit(
+      state.copyWith(
+        authState: BaseState(data: isAuthenticated),
+        requiresAuthentication: false,
+      ),
+    );
+  }
+
+  Future<void> _checkAuth() async {
+    final isAuthenticated = await _authRepository.isAuthenticated();
+
+    if (isAuthenticated) {
+      await _authRepository.startSessionRefresh();
+    }
+
+    emit(
+      state.copyWith(
+        authState: BaseState(data: isAuthenticated),
+        requiresAuthentication: false,
+      ),
+    );
+  }
+
+  Future<void> _logout() async {
+    await _authRepository.logout();
+
+    _authRepository.stopSessionRefresh();
+
+    _pendingAction = null;
+
+    emit(
+      state.copyWith(
+        authState: const BaseState(data: false),
+        requiresAuthentication: false,
+      ),
+    );
+  }
+
+  void _requireAuthentication(PendingAction? pendingAction) {
+    _pendingAction = pendingAction;
+
+    emit(state.copyWith(requiresAuthentication: false));
+
+    emit(state.copyWith(requiresAuthentication: true));
+  }
+
+  // Handles successful login.
+  Future<void> _handleAuthenticationSuccess() async {
+    await _checkAuth();
+
+    if (!state.isAuthenticated) {
+      return;
+    }
+
+    // Login itself never registers the token; force past the device-wide
+    // dedupe so the backend binds it to this account, not the previous one.
+    await _syncFcmTokenUseCase(force: true);
+
+    emit(state.copyWith(requiresAuthentication: false));
+
+    await replayPendingAction();
+  }
+
+  void _handleSessionExpired() {
+    _authRepository.stopSessionRefresh();
+
+    _pendingAction = null;
+
+    emit(
+      state.copyWith(
+        authState: const BaseState(data: false),
+        requiresAuthentication: false,
+        sessionExpired: true,
+      ),
+    );
+  }
+
+  void acknowledgeSessionExpired() {
+    if (!state.sessionExpired) return;
+
+    emit(state.copyWith(sessionExpired: false));
+  }
+
+  Future<void> replayPendingAction() async {
+    final action = _pendingAction;
+
+    _pendingAction = null;
+
+    if (action == null) {
+      return;
+    }
+
+    await action();
+  }
+
+  void clearPendingAction() {
+    _pendingAction = null;
+  }
+
+  @override
+  Future<void> logout() => doEvent(const AuthLogoutRequested());
+
+  @override
+  Future<void> close() async {
+    await _sessionExpiredSubscription.cancel();
+
+    _pendingAction = null;
+
+    return super.close();
+  }
+}

@@ -1,0 +1,52 @@
+import 'package:dio/dio.dart';
+import 'package:flower_app/core/constants/injection_keys.dart';
+import 'package:flower_app/features/address/api/address_api_client.dart';
+import 'package:flower_app/features/auth/forget_password/api/client/forget_password_api_client.dart';
+import 'package:flower_app/features/auth/login/data/api/auth_api_client.dart';
+import 'package:flower_app/features/auth/register/data/api/register_api_client.dart';
+import 'package:flower_app/features/cart/api/cart_api_client.dart';
+import 'package:flower_app/features/commerce/api/commerce_api_client.dart';
+import 'package:flower_app/features/notification/api/notification_api_client.dart';
+import 'package:flower_app/features/profile/data/api/profile_api_client.dart';
+import 'package:injectable/injectable.dart';
+
+import '../../features/order/data/api/order_api_client.dart';
+import '../../features/order/data/api/osrm_api_client.dart';
+import '../../features/sessions/api/session_api_client.dart';
+
+@module
+abstract class ApiModule {
+  @singleton
+  ForgetPasswordApiClient provideForgetPasswordApiClient(Dio dio) =>
+      ForgetPasswordApiClient(dio);
+
+  @singleton
+  AuthApiClient provideAuthApiClient(Dio dio) => AuthApiClient(dio);
+
+  @singleton
+  RegisterApiClient provideRegisterApiClient(Dio dio) => RegisterApiClient(dio);
+
+  @singleton
+  CommerceApiClient provideCommerceApiClient(Dio dio) => CommerceApiClient(dio);
+  @singleton
+  AddressApiClient provideAddressApiClient(Dio dio)=>AddressApiClient(dio);
+
+  @singleton
+  CartApiClient provideCartApiClient(Dio dio) => CartApiClient(dio);
+
+  @singleton
+  SessionApiClient provideSessionApiClient(Dio dio) => SessionApiClient(dio);
+
+  @singleton
+  NotificationApiClient provideNotificationApiClient(Dio dio) =>
+      NotificationApiClient(dio);
+  
+  ProfileApiClient provideProfileApiClient(Dio dio) => ProfileApiClient(dio);
+
+  @singleton
+  OrderApiClient provideOrderApiClient(Dio dio) => OrderApiClient(dio);
+
+  @singleton
+  OsrmApiClient provideOsrmApiClient(@Named(InjectionKeys.osrmDio) Dio dio) =>
+      OsrmApiClient(dio);
+}

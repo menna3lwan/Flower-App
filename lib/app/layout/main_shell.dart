@@ -1,0 +1,138 @@
+import 'package:flower_app/app/router/app_routes.dart';
+import 'package:flower_app/features/auth/core/auth_extension.dart';
+import 'package:flower_app/features/auth/core/presentation/view/auth_bottom_sheet.dart';
+import 'package:flower_app/features/auth/core/presentation/view_model/auth_cubit.dart';
+import 'package:flower_app/features/auth/core/presentation/view_model/auth_state.dart';
+import 'package:flower_app/core/constants/app_icons.dart';
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/features/cart/presentation/view/widgets/cart_badge_icon.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_event.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_state.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+class MainShell extends StatelessWidget {
+  const MainShell({
+    super.key,
+    required this.navigationShell,
+    required this.location,
+  });
+
+  final StatefulNavigationShell navigationShell;
+  final String location;
+
+  bool get _showBottomBar => AppRoutesName.isMainTab(location);
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthCubit, AuthState>(
+      listenWhen: (previous, current) =>
+          !previous.requiresAuthentication && current.requiresAuthentication,
+      listener: (context, state) {
+        showLoginBottomSheet(context);
+      },
+      child: BlocListener<AuthCubit, AuthState>(
+        listenWhen: (previous, current) =>
+            previous.isAuthenticated != current.isAuthenticated,
+        listener: (context, state) {
+          final cart = context.read<CartViewModel>();
+          if (state.isAuthenticated) {
+            cart.doEvent(LoadCart());
+            return;
+          }
+          cart.doEvent(ResetCart());
+        },
+        child: BlocListener<CartViewModel, CartState>(
+          listenWhen: (previous, current) =>
+              previous.cartState.errorMessage !=
+                  current.cartState.errorMessage &&
+              current.cartState.errorMessage.isNotEmpty,
+          listener: (context, state) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.cartState.errorMessage)),
+            );
+          },
+          child: _InitialCartLoader(
+            child: Scaffold(
+              body: navigationShell,
+              bottomNavigationBar: _showBottomBar
+                  ? NavigationBar(
+                      selectedIndex: navigationShell.currentIndex,
+                      onDestinationSelected: (index) async {
+                        if (index == 2 || index == 3) {
+                          await context.requireAuth(
+                            action: () async {
+                              navigationShell.goBranch(
+                                index,
+                                initialLocation: false,
+                              );
+                              if (index == 2) {
+                                await context.read<CartViewModel>().doEvent(
+                                  LoadCart(),
+                                );
+                              }
+                            },
+                          );
+                        } else {
+                          navigationShell.goBranch(
+                            index,
+                            initialLocation:
+                                index == navigationShell.currentIndex,
+                          );
+                        }
+                      },
+                      destinations: [
+                        NavigationDestination(
+                          icon: Icon(AppIcons.home),
+                          label: AppString.home,
+                        ),
+                        NavigationDestination(
+                          icon: Icon(AppIcons.storefront),
+                          label: AppString.categories,
+                        ),
+                        NavigationDestination(
+                          icon: CartBadgeIcon(),
+                          label: AppString.cart,
+                        ),
+                        NavigationDestination(
+                          icon: Icon(AppIcons.person),
+                          label: AppString.profile,
+                        ),
+                      ],
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InitialCartLoader extends StatefulWidget {
+  const _InitialCartLoader({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_InitialCartLoader> createState() => _InitialCartLoaderState();
+}
+
+class _InitialCartLoaderState extends State<_InitialCartLoader> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  void _load() {
+    if (!mounted) return;
+    if (!context.read<AuthCubit>().state.isAuthenticated) return;
+    context.read<CartViewModel>().doEvent(const LoadCart());
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

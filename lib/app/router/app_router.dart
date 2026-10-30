@@ -1,0 +1,457 @@
+import 'package:flower_app/app/layout/main_shell.dart';
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/core/di/di.dart';
+import 'package:flower_app/core/navigation/route_success_snack_bar.dart';
+import 'package:flower_app/features/address/domain/entities/address_entity.dart';
+import 'package:flower_app/features/address/presentation/default_address_view_model/default_address_event.dart';
+import 'package:flower_app/features/address/presentation/default_address_view_model/default_address_view_model.dart';
+import 'package:flower_app/features/address/presentation/new_address/view/screen/add_address_screen.dart';
+import 'package:flower_app/features/address/presentation/new_address/view_model/address_view_model.dart';
+import 'package:flower_app/features/address/presentation/save_address/view/save_address_screen.dart';
+import 'package:flower_app/features/address/presentation/save_address/view_model/save_address_view_model.dart';
+import 'package:flower_app/features/auth/forget_password/presentation/pages/forget_password_page.dart';
+import 'package:flower_app/features/auth/forget_password/presentation/pages/reset_password_page.dart';
+import 'package:flower_app/features/auth/forget_password/presentation/pages/verification_page.dart';
+import 'package:flower_app/features/auth/forget_password/presentation/view_model/forget_password_cubit.dart';
+import 'package:flower_app/features/auth/login/presentation/view/pages/login_page.dart';
+import 'package:flower_app/features/auth/login/presentation/view_model/login_view_model.dart';
+import 'package:flower_app/features/auth/register/presentation/view/pages/register_page.dart';
+import 'package:flower_app/features/auth/register/presentation/view_model/register_view_model.dart';
+import 'package:flower_app/features/cart/presentation/view/screen/cart_screen.dart';
+import 'package:flower_app/features/cart/presentation/view/screen/checkout_screen.dart';
+import 'package:flower_app/features/cart/presentation/view/screen/confirmation_screen.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_view_model.dart';
+import 'package:flower_app/features/cart/presentation/view_model/checkout_view_model.dart';
+import 'package:flower_app/features/commerce/presentation/best_seller/view/screen/best_seller_screen.dart';
+import 'package:flower_app/features/commerce/presentation/best_seller/view_model/best_seller_view_model.dart';
+import 'package:flower_app/features/commerce/presentation/category/view/screen/category_screen.dart';
+import 'package:flower_app/features/commerce/presentation/category/view_model/category_event.dart';
+import 'package:flower_app/features/commerce/presentation/category/view_model/category_view_model.dart';
+import 'package:flower_app/features/commerce/presentation/home/view/screen/home_screen.dart';
+import 'package:flower_app/features/commerce/presentation/home/view_model/home_event.dart';
+import 'package:flower_app/features/commerce/presentation/home/view_model/home_view_model.dart';
+import 'package:flower_app/features/commerce/presentation/occasion/view/screen/occasion_screen.dart';
+import 'package:flower_app/features/commerce/presentation/occasion/view_model/occasion_view_model.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view/screen/product_details_screen.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view_model/product_details_event.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view_model/product_details_view_model.dart';
+import 'package:flower_app/core/widgets/app_web_view_screen.dart';
+import 'package:flower_app/features/payment/presentation/view/screens/payment_screen.dart';
+import 'package:flower_app/features/payment/presentation/view/screens/payment_webview.dart';
+import 'package:flower_app/features/payment/presentation/view_model/payment_event.dart';
+import 'package:flower_app/features/payment/presentation/view_model/paymeny_view_model.dart';
+import 'package:flower_app/features/profile/domain/entities/profile_entity.dart';
+import 'package:flower_app/features/profile/presentation/view/screen/edit_profile_screen.dart';
+import 'package:flower_app/features/profile/presentation/view/screen/profile_screen.dart';
+import 'package:flower_app/features/profile/presentation/view_model/profile_view_model.dart';
+import 'package:flower_app/features/profile/presentation/view_model/update_profile_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../features/auth/core/domain/repos/auth_repository.dart';
+import '../../features/auth/core/presentation/view_model/auth_cubit.dart';
+import '../../features/auth/core/presentation/view_model/auth_state.dart';
+import '../../features/commerce/presentation/search/view/screen/search_screen.dart';
+import '../../features/commerce/presentation/search/view_model/search_view_model.dart';
+import '../../features/order/presentation/my_orders/view/page/my_orders_list_page.dart';
+import '../../features/order/presentation/my_orders/view_model/my_orders_event.dart';
+import '../../features/order/presentation/my_orders/view_model/my_orders_view_model.dart';
+import '../../features/order/presentation/order_tracking/view/page/order_tracking_map_page.dart';
+import '../../features/order/presentation/order_tracking/view/page/order_tracking_page.dart';
+import '../../features/order/presentation/order_tracking/view_model/order_tracking_event.dart';
+import '../../features/order/presentation/order_tracking/view_model/order_tracking_view_model.dart';
+import '../../features/sessions/presentation/view/session_screen.dart';
+import '../../features/sessions/presentation/view_model/session_event.dart';
+import '../../features/sessions/presentation/view_model/session_view_model.dart';
+import 'app_routes.dart';
+
+class AppRouter {
+  AppRouter._();
+
+  static final routeObserver = RouteObserver<ModalRoute<void>>();
+
+  static Future<String> resolveInitialLocation() async {
+    final isAuthenticated = await getIt<AuthRepository>().isAuthenticated();
+
+    return isAuthenticated ? AppRoutesName.home : AppRoutesName.login;
+  }
+
+  static GoRouter createRouter({String? initialLocation}) {
+    return GoRouter(
+      initialLocation: initialLocation ?? AppRoutesName.login,
+      errorBuilder: _errorBuilder,
+      observers: [routeObserver],
+      routes: [
+        _loginRoute(),
+        _registerRoute(),
+        _forgetPasswordShell(),
+        _searchRoute(),
+        _mainShell(),
+        GoRoute(path: AppRoutesName.address, builder: _addressBuilder),
+        GoRoute(path: AppRoutesName.saveAddress, builder: _saveAddressBuilder),
+        GoRoute(path: AppRoutesName.checkout, builder: _checkoutBuilder),
+        GoRoute(path: AppRoutesName.payment, builder: _paymentBuilder),
+        GoRoute(
+          path: AppRoutesName.confirmation,
+          builder: _confirmationBuilder,
+        ),
+        GoRoute(path: AppRoutesName.trackOrder, builder: _trackOrderBuilder),
+        GoRoute(
+          path: AppRoutesName.webView,
+          builder: (context, state) {
+            final args = state.extra as WebViewArgs;
+            return AppWebViewScreen(url: args.url, title: args.title);
+          },
+        ),
+        GoRoute(path: AppRoutesName.sessions, builder: _sessionsBuilder),
+        GoRoute(
+          path: AppRoutesName.orderTrackingMapPage,
+          builder: _orderTrackingMapBuilder,
+        ),
+        GoRoute(path: AppRoutesName.myOrders, builder: _myOrderListBuilder),
+
+        GoRoute(
+          path: AppRoutesName.paymentWebView,
+          builder: (context, state) {
+            final extra = state.extra;
+
+            if (extra is! PaymentArgs) {
+              return Scaffold(
+                body: Center(
+                  child: Text(AppString.paymentSessionDataUnavailable),
+                ),
+              );
+            }
+
+            return PaymentWebView(
+              sessionUrl: extra.sessionUrl,
+              successUrl: extra.successUrl,
+              cancelUrl: extra.cancelUrl,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  static Widget _errorBuilder(BuildContext context, GoRouterState state) {
+    return Scaffold(body: Center(child: Text(AppString.pageNotFound)));
+  }
+
+  static GoRoute _loginRoute() {
+    return GoRoute(
+      path: AppRoutesName.login,
+      builder: (context, state) {
+        return BlocProvider(
+          create: (_) => getIt<LoginViewModel>(),
+          child: RouteSuccessSnackBar(
+            message: state.uri.queryParameters['success'],
+            child: const LoginPage(),
+          ),
+        );
+      },
+    );
+  }
+
+  static GoRoute _registerRoute() {
+    return GoRoute(
+      path: AppRoutesName.register,
+      builder: (context, state) {
+        return BlocProvider(
+          create: (_) => getIt<RegisterViewModel>(),
+          child: const RegisterPage(),
+        );
+      },
+    );
+  }
+
+  static GoRoute _searchRoute() {
+    return GoRoute(path: AppRoutesName.search, builder: _searchBuilder);
+  }
+
+  static ShellRoute _forgetPasswordShell() {
+    return ShellRoute(
+      builder: (context, state, child) {
+        return BlocProvider(
+          create: (_) => getIt<ForgetPasswordCubit>(),
+          child: child,
+        );
+      },
+      routes: [
+        GoRoute(
+          path: AppRoutesName.forgetPassword,
+          builder: (context, state) {
+            return const ForgetPasswordPage();
+          },
+          routes: [
+            GoRoute(
+              path: AppRoutesName.verification,
+              builder: (context, state) {
+                return const VerificationPage();
+              },
+            ),
+            GoRoute(
+              path: 'reset-password',
+              builder: (context, state) {
+                return const ResetPasswordPage();
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static StatefulShellRoute _mainShell() {
+    return StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return BlocProvider.value(
+          value: getIt<CartViewModel>(),
+          child: MainShell(
+            navigationShell: navigationShell,
+            location: state.uri.path,
+          ),
+        );
+      },
+      branches: [
+        _homeBranch(),
+        categoryBranch(),
+        _cartBranch(),
+        _profileBranch(),
+      ],
+    );
+  }
+
+  static StatefulShellBranch _homeBranch() {
+    return StatefulShellBranch(routes: _homeRoutes());
+  }
+
+  static List<RouteBase> _homeRoutes() {
+    return [
+      GoRoute(path: AppRoutesName.home, builder: _homeBuilder),
+      GoRoute(path: AppRoutesName.bestSeller, builder: _bestSellerBuilder),
+      GoRoute(path: AppRoutesName.occasion, builder: _occasionBuilder),
+      GoRoute(
+        path: AppRoutesName.productDetails,
+        builder: _productDetailsBuilder,
+      ),
+    ];
+  }
+
+  static Widget _searchBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<SearchViewModel>(),
+      child: const SearchScreen(),
+    );
+  }
+
+  static Widget _homeBuilder(BuildContext context, GoRouterState state) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => getIt<HomeViewModel>()..doEvent(HomeRequested()),
+        ),
+        BlocProvider(
+          create: (_) {
+            final viewModel = getIt<DefaultAddressViewModel>();
+
+            if (context.read<AuthCubit>().state.isAuthenticated) {
+              viewModel.doEvent(LoadSavedAddresses());
+            }
+
+            return viewModel;
+          },
+        ),
+      ],
+      child: const HomeScreen(),
+    );
+  }
+
+  static Widget _bestSellerBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<BestSellerViewModel>(),
+      child: const BestSellerScreen(),
+    );
+  }
+
+  static Widget _productDetailsBuilder(
+    BuildContext context,
+    GoRouterState state,
+  ) {
+    final productId = state.pathParameters['productId'];
+
+    if (productId == null || productId.isEmpty) {
+      return Scaffold(body: Center(child: Text(AppString.pageNotFound)));
+    }
+
+    return BlocProvider(
+      create: (_) =>
+          getIt<ProductDetailsViewModel>()
+            ..onEvent(GetProductDetailsEvent(productId: productId)),
+      child: const ProductDetailsScreen(),
+    );
+  }
+
+  static Widget _occasionBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<OccasionViewModel>(),
+      child: const OccasionScreen(),
+    );
+  }
+
+  static StatefulShellBranch categoryBranch() {
+    return StatefulShellBranch(
+      routes: [
+        GoRoute(path: AppRoutesName.category, builder: _categoryBuilder),
+      ],
+    );
+  }
+
+  static Widget _categoryBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<CategoryViewModel>()..onEvent(LoadCategories()),
+      child: const CategoryScreen(),
+    );
+  }
+
+  static StatefulShellBranch _cartBranch() {
+    return StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: AppRoutesName.cart,
+          builder: (context, state) => const CartScreen(),
+        ),
+      ],
+    );
+  }
+
+  static StatefulShellBranch _profileBranch() {
+    return StatefulShellBranch(
+      routes: [
+        GoRoute(path: AppRoutesName.profile, builder: _profileBuilder),
+        GoRoute(
+          path: AppRoutesName.editProfile,
+          builder: (context, state) {
+            final profile = state.extra as ProfileEntity;
+
+            return BlocProvider(
+              create: (_) => getIt<UpdateProfileViewModel>(),
+              child: EditProfileScreen(profile: profile),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  static Widget _profileBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider.value(
+      value: getIt<ProfileViewModel>(),
+      child: const ProfileScreen(),
+    );
+  }
+
+  static Widget _addressBuilder(BuildContext context, GoRouterState state) {
+    final address = state.extra as AddressEntity?;
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<SaveAddressViewModel>(
+          create: (_) => getIt<SaveAddressViewModel>(),
+        ),
+        BlocProvider<AddressViewModel>(
+          create: (_) => getIt<AddressViewModel>(),
+        ),
+      ],
+      child: AddAddressScreen(address: address),
+    );
+  }
+
+  static Widget _saveAddressBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider.value(
+      value: getIt<DefaultAddressViewModel>()..doEvent(LoadSavedAddresses()),
+      child: const SavedAddressesScreen(),
+    );
+  }
+
+  static Widget _sessionsBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<SessionsViewModel>()..onEvent(LoadSessions()),
+      child: const SessionsScreen(),
+    );
+  }
+
+  static Widget _checkoutBuilder(BuildContext context, GoRouterState state) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<CheckoutViewModel>()),
+        BlocProvider.value(value: getIt<DefaultAddressViewModel>()),
+      ],
+      child: const CheckoutScreen(),
+    );
+  }
+
+  static Widget _paymentBuilder(BuildContext context, GoRouterState state) {
+    final extra = state.extra;
+
+    if (extra is! PaymentArgs) {
+      return Scaffold(
+        body: Center(child: Text(AppString.paymentSessionDataUnavailable)),
+      );
+    }
+
+    return BlocProvider(
+      create: (context) => getIt<PaymentViewModel>()
+        ..doEvent(
+          StartPayment(
+            sessionUrl: extra.sessionUrl,
+            successUrl: extra.successUrl,
+            cancelUrl: extra.cancelUrl,
+          ),
+        ),
+      child: PaymentView(
+        successUrl: extra.successUrl,
+        cancelUrl: extra.cancelUrl,
+        orderId: extra.orderId,
+      ),
+    );
+  }
+
+  static Widget _confirmationBuilder(
+    BuildContext context,
+    GoRouterState state,
+  ) {
+    return ConfirmationScreen(orderId: _orderIdFromExtra(state.extra));
+  }
+
+  static Widget _trackOrderBuilder(BuildContext context, GoRouterState state) {
+    final orderId = _orderIdFromExtra(state.extra);
+    return BlocProvider(
+      create: (_) =>
+          getIt<OrderTrackingViewModel>()..onEvent(WatchOrderTracking(orderId)),
+      child: OrderTrackingPage(orderId: orderId),
+    );
+  }
+
+  static Widget _orderTrackingMapBuilder(
+    BuildContext context,
+    GoRouterState state,
+  ) {
+    return BlocProvider.value(
+      value: state.extra! as OrderTrackingViewModel,
+      child: const OrderTrackingMapPage(),
+    );
+  }
+
+  static String? _orderIdFromExtra(Object? extra) {
+    return extra is String && extra.isNotEmpty ? extra : null;
+  }
+
+  static Widget _myOrderListBuilder(BuildContext context, GoRouterState state) {
+    return BlocProvider(
+      create: (_) => getIt<MyOrdersViewModel>()..onEvent(LoadMyOrders()),
+      child: MyOrdersListPage(routeObserver: routeObserver),
+    );
+  }
+}

@@ -1,0 +1,16 @@
+class ApiQueryParams {
+  ApiQueryParams._();
+
+  static const String occasionId = 'OccasionId';
+  static const String categoryId = 'categoryId';
+  static const String id = 'id';
+  static const String sessionId = 'sessionId';
+  static const String storeId = 'storeId';
+  static const String addressId = 'addressId';
+  static const String cartId = 'cartId';
+  static const String estimateAddressId = 'AddressId';
+  static const String estimateCartId = 'CartId';
+  static const String idempotencyKey = 'Idempotency-Key';
+  static const String itemId = 'itemId';
+  static const String orderId = 'orderId';
+}

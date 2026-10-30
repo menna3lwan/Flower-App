@@ -1,0 +1,85 @@
+import 'package:dio/dio.dart';
+import 'package:flower_app/core/constants/api_endpoints.dart';
+import 'package:flower_app/core/constants/env_config.dart';
+import 'package:flower_app/core/constants/injection_keys.dart';
+import 'package:flower_app/core/network/auth_interceptors.dart';
+import 'package:flutter/foundation.dart';
+import 'package:injectable/injectable.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+
+@module
+abstract class DioModule {
+  @singleton
+  Dio provideDio(AuthInterceptors authInterceptors) {
+
+    final dio = Dio(_createBaseOptions());
+
+    _configureInterceptors(dio, authInterceptors);
+    _addDebugLogger(dio);
+
+    return dio;
+  }
+
+  @singleton
+  @Named(InjectionKeys.osrmDio)
+  Dio provideOsrmDio() => Dio(
+    BaseOptions(
+      baseUrl: EnvConfig.osrmBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: const {'Content-Type': 'application/json'},
+    ),
+  );
+
+  BaseOptions _createBaseOptions() {
+    final baseUrl = ApiEndpoints.resolvedBaseUrl;
+    assert(baseUrl.isNotEmpty, 'BASE_URL is empty — check .env loading order');
+    return BaseOptions(
+      baseUrl: baseUrl,
+      receiveTimeout: const Duration(seconds: 60),
+      connectTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
+      headers: const {'Content-Type': 'application/json'},
+    );
+  }
+
+  void _configureInterceptors(Dio dio, AuthInterceptors authInterceptors) {
+    dio.interceptors.add(authInterceptors);
+    authInterceptors.attachDio(dio);
+    if (kDebugMode) {
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            // ignore: avoid_print
+            print('🚀 REQUEST: ${options.method} ${options.uri}');
+            handler.next(options);
+          },
+          onError: (err, handler) {
+            // ignore: avoid_print
+            print('❌ ERROR: ${err.type} | ${err.message} | uri: ${err.requestOptions.uri}');
+            handler.next(err);
+          },
+        ),
+      );
+    }
+  }
+
+  void _addDebugLogger(Dio dio) {
+    if (!kDebugMode) {
+      return;
+    }
+
+    // TEMP-DEBUG Dio request/response logging is enabled only in debug mode.
+    dio.interceptors.add(
+      PrettyDioLogger(
+        requestHeader: true,
+        requestBody: true,
+        responseBody: true,
+        responseHeader: false,
+        error: true,
+        compact: true,
+        maxWidth: 90,
+      ),
+    );
+  }
+}

@@ -1,0 +1,180 @@
+import 'package:flower_app/features/auth/core/auth_extension.dart';
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/core/di/di.dart';
+import 'package:flower_app/core/navigation/product_navigation.dart';
+import 'package:flower_app/core/utils/pagination/pagination_grid_view.dart';
+import 'package:flower_app/core/utils/pagination/pagination_state.dart';
+import 'package:flower_app/core/widgets/app_shimmer/occasion_shimmer.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_event.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_view_model.dart';
+import 'package:flower_app/features/commerce/core/widgets/commerce_app_bar.dart';
+import 'package:flower_app/features/commerce/core/widgets/custom_tab_bar.dart';
+import 'package:flower_app/features/commerce/core/widgets/product_card.dart';
+import 'package:flower_app/features/commerce/data/models/occasion_model.dart';
+import 'package:flower_app/features/commerce/domain/entities/product_entity.dart';
+import 'package:flower_app/features/commerce/presentation/occasion/view_model/occasion_event.dart';
+import 'package:flower_app/features/commerce/presentation/occasion/view_model/occasion_state.dart';
+import 'package:flower_app/features/commerce/presentation/occasion/view_model/occasion_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+class OccasionScreen extends StatefulWidget {
+  const OccasionScreen({super.key});
+
+  @override
+  State<OccasionScreen> createState() => _OccasionScreenState();
+}
+
+class _OccasionScreenState extends State<OccasionScreen> {
+  late final OccasionViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = getIt<OccasionViewModel>();
+    _viewModel.onEvent(LoadOccasions());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider.value(
+      value: _viewModel,
+      child: BlocBuilder<OccasionViewModel, OccasionState>(
+        builder: (context, state) {
+          final tabs = _buildTabs(
+            state.occasionsState.data ?? const <OccasionModel>[],
+          );
+
+          return SafeArea(
+            child: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    height: 70.h,
+                    child: CommerceAppBar(
+                      title: AppString.occasions,
+                      des: AppString.desSell,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  CustomTabBar(
+                    tabs: tabs,
+                    selectedTab: state.selectedTab,
+                    onTabSelected: (tab) {
+                      final selectedOccasion =
+                          (state.occasionsState.data ?? const <OccasionModel>[])
+                              .firstWhere(
+                                (occasion) => occasion.name == tab,
+                                orElse: () =>
+                                    state.occasionsState.data?.first ??
+                                    OccasionModel(
+                                      id: '',
+                                      name: tab,
+                                      imageUrl: '',
+                                      displayOrder: 0,
+                                    ),
+                              );
+
+                      context.read<OccasionViewModel>().onEvent(
+                        SelectOccasionTab(
+                          occasionId: selectedOccasion.id,
+                          tab: tab,
+                        ),
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: state.occasionsState.isLoading
+                        ? const OccasionShimmer()
+                        : state.occasionsState.errorMessage.isNotEmpty
+                        ? Center(child: Text(state.occasionsState.errorMessage))
+                        : ListenableBuilder(
+                            listenable: _viewModel.productsPaginationController,
+                            builder: (context, _) {
+                              final pState =
+                                  _viewModel.productsPaginationController.state;
+
+                              if (pState.status == PaginationStatus.loading &&
+                                  pState.items.isEmpty) {
+                                return const OccasionShimmer();
+                              }
+
+                              if (pState.status == PaginationStatus.error &&
+                                  pState.items.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    pState.errorMessage ??
+                                        AppString.somethingWrong,
+                                  ),
+                                );
+                              }
+
+                              if (pState.items.isEmpty &&
+                                  pState.status == PaginationStatus.success) {
+                                return Center(child: Text(AppString.notFound));
+                              }
+
+                              return PaginationGridView<ProductEntity>(
+                                key: ValueKey(state.selectedOccasionId),
+                                controller:
+                                    _viewModel.productsPaginationController,
+                                padding: EdgeInsets.all(16.w),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12.w,
+                                      mainAxisSpacing: 12.h,
+                                      childAspectRatio: 0.55,
+                                    ),
+                                itemBuilder: (context, product, index) {
+                                  return ProductCard(
+                                    productId: product.id,
+                                    imageUrl: product.imageUrl,
+                                    name: product.name,
+                                    price: product.discountedPrice > 0
+                                        ? product.discountedPrice
+                                              .toStringAsFixed(2)
+                                        : 'N/A',
+                                    oldPrice:
+                                        product.price != product.discountedPrice
+                                        ? product.price?.toStringAsFixed(2)
+                                        : null,
+                                    discount: product.discountPercent != null
+                                        ? '${product.discountPercent!.toStringAsFixed(0)}%'
+                                        : null,
+                                    onAddToCart: () =>
+                                        _addToCart(context, product.id),
+                                    onTap: () => navigateToProductDetails(
+                                      context,
+                                      product.id,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  List<String> _buildTabs(List<OccasionModel> occasions) {
+    return occasions.map((occasion) => occasion.name).toList();
+  }
+
+  Future<void> _addToCart(BuildContext context, String productId) {
+    return context.requireAuth(
+      action: () {
+        return context.read<CartViewModel>().doEvent(
+          AddCartItemEvent(productId: productId),
+        );
+      },
+    );
+  }
+}

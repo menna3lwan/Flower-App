@@ -1,0 +1,82 @@
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/core/widgets/app_button.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_event.dart';
+import 'package:flower_app/features/cart/presentation/view_model/cart_view_model.dart';
+import 'package:flower_app/features/commerce/domain/entities/product_details_entity.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view/widgets/product_details_body.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view_model/product_details_state.dart';
+import 'package:flower_app/features/commerce/presentation/prodect_details/view_model/product_details_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:flower_app/features/auth/core/auth_extension.dart';
+
+import '../../../../../../core/widgets/app_shimmer/product_details_shimmer.dart';
+
+// The route already creates the cubit AND fires GetProductDetailsEvent
+// (see productDetailsBranch), so this screen just reads the state —
+// no BlocProvider, no initState, no event dispatch here.
+class ProductDetailsScreen extends StatelessWidget {
+  const ProductDetailsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(AppString.productDetails)),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: BlocBuilder<ProductDetailsViewModel, ProductDetailsState>(
+                builder: (context, state) {
+                  final requestState = state.productDetailsState;
+
+                  if (requestState.isLoading) {
+                    return const ProductDetailsShimmer();
+                  }
+
+                  if (requestState.errorMessage.isNotEmpty) {
+                    return Center(child: Text(requestState.errorMessage));
+                  }
+
+                  final ProductDetailsEntity? product = requestState.data;
+
+                  if (product == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return ProductDetailsBody(product: product);
+                },
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
+              child: AppButton(
+                text: "Add to cart",
+                onPressed: () => _addToCart(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addToCart(BuildContext context) async {
+    final productId = context
+        .read<ProductDetailsViewModel>()
+        .state
+        .productDetailsState
+        .data
+        ?.id;
+    if (productId == null || productId.isEmpty) return;
+    await context.requireAuth(
+      action: () {
+        return context.read<CartViewModel>().doEvent(
+          AddCartItemEvent(productId: productId),
+        );
+      },
+    );
+  }
+}

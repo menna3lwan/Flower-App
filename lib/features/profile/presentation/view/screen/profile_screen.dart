@@ -1,0 +1,283 @@
+import 'dart:io';
+
+import 'package:flower_app/app/router/app_routes.dart';
+import 'package:flower_app/core/auth/auth_session_controller.dart';
+import 'package:flower_app/core/constants/app_string.dart';
+import 'package:flower_app/core/constants/app_urls.dart';
+import 'package:flower_app/core/di/di.dart';
+import 'package:flower_app/core/theme/app_color.dart';
+import 'package:flower_app/core/widgets/app_web_view_screen.dart';
+import 'package:flower_app/features/profile/domain/entities/profile_entity.dart';
+import 'package:flower_app/features/profile/presentation/view/widgets/language_bottom_sheet.dart';
+import 'package:flower_app/features/profile/presentation/view/widgets/logout_confirmation_dialog.dart';
+import 'package:flower_app/features/profile/presentation/view/widgets/profile_header.dart';
+import 'package:flower_app/features/profile/presentation/view/widgets/profile_info_section.dart';
+import 'package:flower_app/features/profile/presentation/view/widgets/profile_options_section.dart';
+import 'package:flower_app/features/profile/presentation/view_model/profile_event.dart';
+import 'package:flower_app/features/profile/presentation/view_model/profile_state.dart';
+import 'package:flower_app/features/profile/presentation/view_model/profile_view_model.dart';
+import 'package:flower_app/features/profile/presentation/view_model/update_profile_view_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    context.read<ProfileViewModel>().doEvent(ProfileInitialized());
+  }
+
+  void _onNotificationsChanged(bool value) {
+    context.read<ProfileViewModel>().doEvent(NotificationToggleChanged(value));
+  }
+
+  Future<void> _onLanguageTap() {
+    return LanguageBottomSheet.show(context);
+  }
+
+  Future<void> _onLogoutTap() async {
+    final confirmed = await LogoutConfirmationDialog.show(context);
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    await context.read<AuthSessionController>().logout();
+
+    if (!mounted) {
+      return;
+    }
+
+    context.go(AppRoutesName.login);
+  }
+
+  void _onSavedAddressTap() {
+    context.push(AppRoutesName.saveAddress);
+  }
+
+  Future<void> _onEditProfileTap(ProfileEntity profile) async {
+    final updatedProfile = await context.push<ProfileEntity>(
+      AppRoutesName.editProfile,
+      extra: profile,
+    );
+
+    if (mounted && updatedProfile != null) {
+      final profileViewModel = context.read<ProfileViewModel>();
+
+      await profileViewModel.doEvent(ProfileUpdated(updatedProfile));
+
+      if (mounted) {
+        await profileViewModel.doEvent(ProfileRequested());
+      }
+    }
+  }
+
+  void _onAboutUsTap() {
+    context.push(
+      AppRoutesName.webView,
+      extra: WebViewArgs(url: AppUrls.aboutUs, title: AppString.aboutUs),
+    );
+  }
+
+  void _onTermsConditionsTap() {
+    context.push(
+      AppRoutesName.webView,
+      extra: WebViewArgs(
+        url: AppUrls.termsAndConditions,
+        title: AppString.termsAndConditionsRow,
+      ),
+    );
+  }
+
+  void _showNotificationSettingsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(AppString.notificationsDisabledTitle),
+          content: Text(AppString.notificationsDisabledBody),
+          actions: [
+            TextButton(
+              onPressed: () {
+                context.read<ProfileViewModel>().doEvent(
+                  NotificationSettingsPromptDismissed(),
+                );
+
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(AppString.notNow),
+            ),
+            TextButton(
+              onPressed: () {
+                context.read<ProfileViewModel>().doEvent(
+                  NotificationSettingsPromptDismissed(),
+                );
+
+                Navigator.of(dialogContext).pop();
+
+                context.read<ProfileViewModel>().doEvent(
+                  OpenNotificationSettingsRequested(),
+                );
+              },
+              child: Text(AppString.openSettings),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showNotificationError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _onMyOrdersTap() {
+    context.push(AppRoutesName.myOrders);
+  }
+
+  String? _savedProfileImagePath() {
+    if (!getIt.isRegistered<SharedPreferences>()) {
+      return null;
+    }
+
+    return getIt<SharedPreferences>().getString(
+      UpdateProfileViewModel.profileImagePathKey,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: BlocListener<ProfileViewModel, ProfileState>(
+          listenWhen: (previous, current) {
+            final shouldShowDialog =
+                !previous.shouldShowNotificationSettingsDialog &&
+                current.shouldShowNotificationSettingsDialog;
+
+            final hasNewError =
+                previous.notificationErrorMessage !=
+                    current.notificationErrorMessage &&
+                current.notificationErrorMessage.isNotEmpty;
+
+            return shouldShowDialog || hasNewError;
+          },
+          listener: (context, state) {
+            if (state.shouldShowNotificationSettingsDialog) {
+              _showNotificationSettingsDialog();
+            }
+
+            if (state.notificationErrorMessage.isNotEmpty) {
+              _showNotificationError(state.notificationErrorMessage);
+            }
+          },
+          child: BlocBuilder<ProfileViewModel, ProfileState>(
+            buildWhen: (previous, current) =>
+                previous.profileState != current.profileState ||
+                previous.isNotificationsEnabled !=
+                    current.isNotificationsEnabled ||
+                previous.isUpdatingNotifications !=
+                    current.isUpdatingNotifications,
+            builder: (context, state) => _buildBody(context, state),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ProfileState state) {
+    final profileState = state.profileState;
+
+    if (profileState.isLoading && profileState.data == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (profileState.errorMessage.isNotEmpty && profileState.data == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(profileState.errorMessage, textAlign: TextAlign.center),
+            SizedBox(height: 12.h),
+            TextButton(
+              onPressed: () =>
+                  context.read<ProfileViewModel>().doEvent(ProfileRequested()),
+              child: Text(AppString.retry),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayData = state.displayData;
+
+    final savedImagePath = _savedProfileImagePath();
+    final savedImage =
+        savedImagePath != null && File(savedImagePath).existsSync()
+        ? File(savedImagePath)
+        : null;
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<ProfileViewModel>().doEvent(ProfileRequested()),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: 24.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ProfileHeader(),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              child: Center(
+                child: displayData == null
+                    ? const SizedBox.shrink()
+                    : ProfileInfoSection(
+                        data: displayData,
+                        imageFile: savedImage,
+                        onEditTap: () => _onEditProfileTap(profileState.data!),
+                      ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: ProfileOptionsSection(
+                onNotificationsChanged: _onNotificationsChanged,
+                onSavedAddressTap: _onSavedAddressTap,
+                onLanguageTap: _onLanguageTap,
+                onAboutUsTap: _onAboutUsTap,
+                onTermsConditionsTap: _onTermsConditionsTap,
+                onLogoutTap: _onLogoutTap,
+                onMyOrdersTap: _onMyOrdersTap,
+                // My orders still has no destination in the app yet.
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Center(
+              child: Text(
+                AppString.appVersion,
+                style: TextStyle(
+                  color: context.colors.grey.shade900,
+                  fontSize: 11.sp,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
